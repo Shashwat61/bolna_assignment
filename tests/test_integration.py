@@ -69,6 +69,7 @@ async def test_end_to_end_pipeline() -> None:
 
     provider_cfg = {
         "name": "IntegrationTest",
+        "product": "IntegrationTest API",
         "feed_url": "https://status.example.com/feed.atom",
         "poll_interval_seconds": 60,
     }
@@ -86,8 +87,8 @@ async def test_end_to_end_pipeline() -> None:
     async def collect_events() -> None:
         async for event in event_bus.subscribe():
             received_events.append(event)
-            # The sample feed has 1 entry with 2 products (API, Dashboard).
-            if len(received_events) >= 2:
+            # The sample feed has 1 entry; product = provider name.
+            if len(received_events) >= 1:
                 break
 
     collector_task = asyncio.create_task(collect_events())
@@ -106,7 +107,7 @@ async def test_end_to_end_pipeline() -> None:
             formatted = consumer._format_event(event)
             printed_lines.append(formatted)
             count += 1
-            if count >= 2:
+            if count >= 1:
                 break
 
     consumer_task = asyncio.create_task(consumer_task_fn())
@@ -134,21 +135,16 @@ async def test_end_to_end_pipeline() -> None:
     await asyncio.wait_for(consumer_task, timeout=5.0)
 
     # -- Assertions --
-    # 1. Two events should have been published (one per product: API, Dashboard).
-    assert len(received_events) == 2
+    # 1. One event per entry; product = provider name.
+    assert len(received_events) == 1
 
-    providers = {e.provider for e in received_events}
-    assert providers == {"IntegrationTest"}
-
-    products = {e.product for e in received_events}
-    assert "API" in products
-    assert "Dashboard" in products
-
-    # All events should be "new" since state was empty.
-    assert all(e.event_type == "new" for e in received_events)
+    event = received_events[0]
+    assert event.provider == "IntegrationTest"
+    assert event.product == "IntegrationTest API - Service disruption"
+    assert event.event_type == "new"
 
     # 2. ConsoleConsumer formatting should include key fields.
-    assert len(printed_lines) == 2
+    assert len(printed_lines) == 1
     for line in printed_lines:
         assert "[NEW]" in line
         assert "Provider: IntegrationTest" in line

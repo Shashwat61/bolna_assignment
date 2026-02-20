@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
@@ -25,5 +25,5 @@ class StatusEvent:
             f"  Status: {self.status} {self.message}"
         )
 
-    def __str__(self) -> str:  # pragma: no cover
+    def __str__(self) -> str:
         return self.formatted_output()

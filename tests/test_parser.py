@@ -53,48 +53,6 @@ class TestHtmlStripping:
         assert "world" in entries[0].summary
 
 
-class TestProductExtraction:
-    """Verify extraction of affected products/components."""
-
-    def test_extracts_products_from_affected_components(self, sample_atom_feed: str) -> None:
-        parser = FeedParser()
-        entries = parser.parse(sample_atom_feed, "GitHub")
-        # First entry has "Affected components: Actions, Pages"
-        first = entries[0]
-        assert "Actions" in first.products
-        assert "Pages" in first.products
-
-    def test_extracts_single_component(self, sample_atom_feed: str) -> None:
-        parser = FeedParser()
-        entries = parser.parse(sample_atom_feed, "GitHub")
-        # Third entry has "Affected components: Copilot"
-        third = entries[2]
-        assert "Copilot" in third.products
-
-    def test_falls_back_to_unknown_when_no_components(self, sample_atom_feed: str) -> None:
-        parser = FeedParser()
-        entries = parser.parse(sample_atom_feed, "GitHub")
-        # Second entry has no "Affected components:" line.
-        second = entries[1]
-        assert second.products == ["Unknown"]
-
-    def test_falls_back_to_unknown_for_plain_text(self) -> None:
-        feed_xml = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <entry>
-    <id>inc-plain</id>
-    <title>Test</title>
-    <updated>2025-06-15T10:00:00Z</updated>
-    <summary type="html">Just a plain message with no component info.</summary>
-  </entry>
-</feed>
-"""
-        parser = FeedParser()
-        entries = parser.parse(feed_xml, "Test")
-        assert entries[0].products == ["Unknown"]
-
-
 class TestSkipsEntriesWithoutId:
     """Entries missing an <id> element should be skipped."""
 

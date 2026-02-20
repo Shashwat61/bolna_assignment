@@ -98,13 +98,14 @@ class PollScheduler:
     async def _poll_loop(self, provider_cfg: dict[str, Any]) -> None:
         """Infinite polling loop for a single provider."""
         name: str = provider_cfg["name"]
+        product: str = provider_cfg.get("product", name)
         feed_url: str = provider_cfg["feed_url"]
         base_interval: int = provider_cfg.get("poll_interval_seconds", 30)
         failure_count = 0
 
         while True:
             try:
-                await self._poll_once(name, feed_url)
+                await self._poll_once(name, product, feed_url)
                 failure_count = 0
                 sleep_time = base_interval + random.uniform(0, _MAX_JITTER)
             except asyncio.CancelledError:
@@ -125,9 +126,11 @@ class PollScheduler:
 
             await asyncio.sleep(sleep_time)
 
-    async def _poll_once(self, name: str, feed_url: str) -> None:
+    async def _poll_once(self, name: str, product: str, feed_url: str) -> None:
         """Execute a single fetch-parse-publish cycle for *name*."""
         state = self._state_manager.get_state(name)
+
+        logger.info("Polling %s — %s", name, feed_url)
 
         result = await self._fetcher.fetch(
             url=feed_url,
@@ -136,10 +139,10 @@ class PollScheduler:
         )
 
         if result.status_code == 304:
-            logger.debug("%s: 304 Not Modified — skipping parse", name)
+            logger.info("%s: 304 Not Modified — no changes", name)
             return
 
-        logger.debug(
+        logger.info(
             "%s: %d — received %d bytes",
             name,
             result.status_code,
@@ -169,21 +172,26 @@ class PollScheduler:
             except (ValueError, TypeError):
                 timestamp = datetime.now(tz=timezone.utc)
 
-            for product in entry.products:
-                event = StatusEvent(
-                    provider=name,
-                    product=product,
-                    status=entry.title,
-                    message=entry.summary,
-                    timestamp=timestamp,
-                    incident_id=entry.entry_id,
-                    event_type=change_type,  # type: ignore[arg-type]
-                )
-                await self._event_bus.publish(event)
-                logger.info(
-                    "%s event for %s — %s: %s",
-                    change_type.upper(),
-                    name,
-                    product,
-                    entry.title,
-                )
+            event = StatusEvent(
+                provider=name,
+                product=f"{product} - {entry.title}",
+                status=entry.title,
+                message=entry.summary,
+                timestamp=timestamp,
+                incident_id=entry.entry_id,
+                event_type=change_type,  # type: ignore[arg-type]
+            )
+            await self._event_bus.publish(event)
+            logger.info(
+                "%s event for %s — %s",
+                change_type.upper(),
+                name,
+                entry.title,
+            )
+            logger.info(
+                "Event detail — id=%s, product=%s, status=%s, summary=%.200s",
+                event.incident_id,
+                event.product,
+                event.status,
+                event.message,
+            )
