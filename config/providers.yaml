@@ -1,0 +1,7 @@
+providers:
+  - name: "OpenAI"
+    feed_url: "https://status.openai.com/feed.atom"
+    poll_interval_seconds: 30
+  - name: "GitHub"
+    feed_url: "https://www.githubstatus.com/history.atom"
+    poll_interval_seconds: 45
