@@ -20,6 +20,7 @@ from core.scheduler import PollScheduler
 from core.state import StateManager
 from events.bus import EventBus
 from consumers.console import ConsoleConsumer
+from consumers.sse import SSEConsumer
 
 _CONFIG_PATH = Path(__file__).parent / "config" / "providers.yaml"
 _MAX_CONCURRENT_REQUESTS = 20
@@ -60,9 +61,11 @@ async def main() -> None:
             state_manager=state_manager,
         )
         consumer = ConsoleConsumer(event_bus=event_bus)
+        sse_consumer = SSEConsumer(event_bus=event_bus, host="0.0.0.0", port=8085)
 
-        # Run consumer in background, then start the scheduler.
+        # Run consumer in background, start SSE server, then start the scheduler.
         consumer_task = asyncio.create_task(consumer.start(), name="console-consumer")
+        await sse_consumer.start()
         await scheduler.start()
 
         # Wait until interrupted.
@@ -77,6 +80,7 @@ async def main() -> None:
         # Graceful shutdown.
         logger.info("Shutting down…")
         await scheduler.stop()
+        await sse_consumer.stop()
         await consumer.stop()
         consumer_task.cancel()
         try:
